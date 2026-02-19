@@ -2,6 +2,8 @@ import networkx as nx
 from datetime import timedelta
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+import signal
+import threading
 
 def build_graph(df):
     """Builds a MultiDiGraph from transactions DataFrame (vectorized)."""
@@ -20,16 +22,30 @@ def build_graph(df):
         G.add_edge(s, r, amount=a, timestamp=t, transaction_id=tid)
     return G
 
-def _detect_cycles_inner(G, max_length=5, max_cycles=100, max_scc_size=50):
-    """Inner function for cycle detection (runs in a thread with timeout)."""
+# Shared stop event for cooperative cancellation
+_stop_event = threading.Event()
+
+def _detect_cycles_inner(G, max_length=5, max_cycles=500):
+    """Inner function for cycle detection with cooperative cancellation."""
+    _stop_event.clear()
     found_cycles = set()
+    iterations = 0
+    MAX_ITERATIONS = 50000  # Hard bail-out to prevent GIL-bound hanging
     try:
-        sccs = [scc for scc in nx.strongly_connected_components(G) if 3 <= len(scc) <= max_scc_size]
-        # Sort smallest first — small SCCs are fast and most likely to be real fraud rings
-        sccs.sort(key=len)
+        # Convert to simple DiGraph to reduce edge count for cycle detection
+        simple_G = nx.DiGraph(G)
+        sccs = [scc for scc in nx.strongly_connected_components(simple_G) if len(scc) >= 3]
         for scc in sccs:
-            subgraph = G.subgraph(scc)
-            for cycle in nx.simple_cycles(subgraph, length_bound=max_length):
+            if _stop_event.is_set():
+                break
+            subgraph = simple_G.subgraph(scc)
+            for cycle in nx.simple_cycles(subgraph):
+                iterations += 1
+                if iterations >= MAX_ITERATIONS or _stop_event.is_set():
+                    print(f"Cycle detection bailed out after {iterations} iterations.")
+                    return [list(c) for c in found_cycles]
+                if len(cycle) > max_length:
+                    continue
                 if len(cycle) >= 3:
                     min_node_idx = cycle.index(min(cycle))
                     normalized = tuple(cycle[min_node_idx:] + cycle[:min_node_idx])
@@ -43,17 +59,24 @@ def _detect_cycles_inner(G, max_length=5, max_cycles=100, max_scc_size=50):
     return [list(c) for c in found_cycles]
 
 
-def detect_cycles(G, max_length=5, max_cycles=100, timeout=3):
+def detect_cycles(G, max_length=5, max_cycles=500, timeout=5):
     """
-    Detects simple cycles with a hard timeout (default 3s) to prevent hanging.
+    Detects simple cycles with a hard timeout (default 5s) to prevent hanging.
+    Uses cooperative cancellation with a stop event + iteration limit.
     """
+    _stop_event.clear()
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(_detect_cycles_inner, G, max_length, max_cycles)
         try:
             return future.result(timeout=timeout)
         except FuturesTimeoutError:
+            _stop_event.set()  # Signal the inner function to stop
             print(f"Cycle detection timed out after {timeout}s, returning partial results.")
-            return []
+            # Give it a moment to check the stop event and return
+            try:
+                return future.result(timeout=1)
+            except (FuturesTimeoutError, Exception):
+                return []
         except Exception as e:
             print(f"Cycle detection failed: {e}")
             return []
