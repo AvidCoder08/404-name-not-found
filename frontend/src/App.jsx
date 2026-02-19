@@ -20,28 +20,39 @@ function App() {
   const [error, setError] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [currentStep, setCurrentStep] = useState('upload');
+  const [statusMessage, setStatusMessage] = useState('');
 
   const handleUpload = async (file) => {
     setAnalyzing(true);
     setData(null);
     setError(null);
     setProgress(0);
-    setLogs(["Initializing upload..."]);
+    setGraphData({ nodes: [], links: [] });
+    setCurrentStep('upload');
+    setStatusMessage('Initializing...');
 
     await streamAnalyzeTransactions(
       file,
       (chunk) => {
-        if (chunk.log) setLogs(prev => [...prev, chunk.log]);
         if (chunk.progress) setProgress(chunk.progress);
+        if (chunk.step) setCurrentStep(chunk.step);
+        if (chunk.log) setStatusMessage(chunk.log);
+        if (chunk.graph_update) {
+          setGraphData({
+            nodes: chunk.graph_update.nodes || [],
+            links: chunk.graph_update.links || [],
+          });
+        }
       },
       (result) => {
         setTimeout(() => {
           setAnalyzing(false);
           setData(result);
           setActiveTab(0);
-        }, 1000);
+        }, 800);
       },
       (errorMessage) => {
         setAnalyzing(false);
@@ -54,7 +65,9 @@ function App() {
     setData(null);
     setAnalyzing(false);
     setProgress(0);
-    setLogs([]);
+    setGraphData({ nodes: [], links: [] });
+    setCurrentStep('upload');
+    setStatusMessage('');
     setActiveTab(0);
   };
 
@@ -138,7 +151,12 @@ function App() {
         {!data && !analyzing ? (
           <FileUpload onUpload={handleUpload} />
         ) : analyzing ? (
-          <ProgressTerminal logs={logs} progress={progress} />
+          <ProgressTerminal
+            progress={progress}
+            graphData={graphData}
+            currentStep={currentStep}
+            statusMessage={statusMessage}
+          />
         ) : (
           renderTabContent()
         )}

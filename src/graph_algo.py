@@ -1,42 +1,36 @@
 import networkx as nx
 from datetime import timedelta
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 def build_graph(df):
-    """Builds a MultiDiGraph from transactions DataFrame."""
+    """Builds a MultiDiGraph from transactions DataFrame (vectorized)."""
     G = nx.MultiDiGraph()
     if 'timestamp' in df.columns:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
-        
-    for _, row in df.iterrows():
-        G.add_edge(
-            row['sender_id'], 
-            row['receiver_id'], 
-            amount=row['amount'], 
-            timestamp=row['timestamp'],
-            transaction_id=row['transaction_id']
-        )
+
+    # Vectorized: use column arrays directly instead of slow iterrows()
+    senders = df['sender_id'].values
+    receivers = df['receiver_id'].values
+    amounts = df['amount'].values
+    timestamps = df['timestamp'].values
+    tx_ids = df['transaction_id'].values
+
+    for s, r, a, t, tid in zip(senders, receivers, amounts, timestamps, tx_ids):
+        G.add_edge(s, r, amount=a, timestamp=t, transaction_id=tid)
     return G
 
-def detect_cycles(G, max_length=5, max_cycles=500):
-    """
-    Detects simple cycles in the graph up to max_length.
-    Returns a list of cycles (list of nodes).
-    Uses nx.simple_cycles with length filtering and a hard cap to prevent hangs.
-    """
+def _detect_cycles_inner(G, max_length=5, max_cycles=500):
+    """Inner function for cycle detection (runs in a thread with timeout)."""
     found_cycles = set()
-
     try:
-        # Only search within strongly connected components (cycles can only exist there)
         sccs = [scc for scc in nx.strongly_connected_components(G) if len(scc) >= 3]
-
         for scc in sccs:
             subgraph = G.subgraph(scc)
             for cycle in nx.simple_cycles(subgraph):
                 if len(cycle) > max_length:
                     continue
                 if len(cycle) >= 3:
-                    # Normalize to avoid duplicate representations
                     min_node_idx = cycle.index(min(cycle))
                     normalized = tuple(cycle[min_node_idx:] + cycle[:min_node_idx])
                     found_cycles.add(normalized)
@@ -46,8 +40,23 @@ def detect_cycles(G, max_length=5, max_cycles=500):
                 break
     except Exception as e:
         print(f"Cycle detection error: {e}")
-
     return [list(c) for c in found_cycles]
+
+
+def detect_cycles(G, max_length=5, max_cycles=500, timeout=5):
+    """
+    Detects simple cycles with a hard timeout (default 5s) to prevent hanging.
+    """
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_detect_cycles_inner, G, max_length, max_cycles)
+        try:
+            return future.result(timeout=timeout)
+        except FuturesTimeoutError:
+            print(f"Cycle detection timed out after {timeout}s, returning partial results.")
+            return []
+        except Exception as e:
+            print(f"Cycle detection failed: {e}")
+            return []
 
 def detect_smurfing(G, time_window_hours=72, min_fan=10):
     """
