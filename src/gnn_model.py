@@ -47,7 +47,7 @@ def prepare_graph_data(transactions_df, labels_df=None):
     # 2. Build Edge Index
     src = transactions_df['sender_id'].map(account_map).values
     dst = transactions_df['receiver_id'].map(account_map).values
-    edge_index = torch.tensor([src, dst], dtype=torch.long)
+    edge_index = torch.tensor(np.array([src, dst]), dtype=torch.long)
     
     # 3. Construct Node Features
     # This is a bit slow in pandas for large graphs, but ok for 10k txs.
@@ -111,17 +111,26 @@ def prepare_graph_data(transactions_df, labels_df=None):
     
     return data
 
-def train_model(data, epochs=100):
+def train_model(data, epochs=200):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = GNNModel(num_node_features=data.num_features).to(device)
     data = data.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
 
+    # Compute class weights to handle severe imbalance (few suspicious vs many benign)
+    if data.y is not None:
+        labels = data.y[data.train_mask]
+        class_counts = torch.bincount(labels, minlength=2).float()
+        # Inverse frequency weighting; clamp to avoid div-by-zero
+        class_weights = (class_counts.sum() / class_counts.clamp(min=1.0)).to(device)
+    else:
+        class_weights = None
+
     model.train()
     for __ in range(epochs):
         optimizer.zero_grad()
         out = model(data)
-        loss = F.nll_loss(out[data.train_mask], data.y[data.train_mask])
+        loss = F.nll_loss(out[data.train_mask], data.y[data.train_mask], weight=class_weights)
         loss.backward()
         optimizer.step()
         
@@ -129,8 +138,10 @@ def train_model(data, epochs=100):
 
 def predict(model, data):
     model.eval()
+    device = next(model.parameters()).device
+    data = data.to(device)
     with torch.no_grad():
-        logits = model(data)
-        probs = F.softmax(logits, dim=1)
+        out = model(data)
+        probs = F.softmax(out, dim=1)
         # Return probability of class 1 (Suspicious)
-        return probs[:, 1].numpy()
+        return probs[:, 1].cpu().numpy()

@@ -5,7 +5,7 @@ from streamlit_agraph import agraph, Node, Edge, Config
 import json
 import torch
 from src.gnn_model import prepare_graph_data, train_model, predict
-from src.graph_algo import build_graph, detect_cycles, detect_smurfing, detect_shells
+from src.graph_algo import build_graph, detect_cycles, detect_smurfing, detect_shells, extract_suspicious_subgraph
 import os
 import time
 
@@ -38,114 +38,131 @@ st.sidebar.success(f"Loaded {len(df)} transactions")
 tab1, tab2, tab3 = st.tabs(["🕵️‍♂️ Detection Dashboard", "🕸️ Graph Visualization", "📥 Export Results"])
 
 with tab1:
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("GNN Suspicion Scoring")
-        train_btn = st.button("Train GNN Model & Analyze")
-        
-    with col2:
-        st.subheader("Heuristic Pattern Detection")
-        detect_btn = st.button("Run Graph Algorithms")
+    st.subheader("Hybrid Detection Pipeline")
+    st.markdown(
+        "**Funnel Approach:** "
+        "Stage 1 (GNN Fast Filter) → Stage 2 (Subgraph Extraction) → Stage 3 (Deterministic Search)"
+    )
 
-    if train_btn or detect_btn:
-        st.divider()
+    # Threshold slider for filtering high-risk nodes after GNN scoring
+    risk_threshold = st.slider(
+        "GNN Risk Threshold (accounts above this score proceed to Stage 2)",
+        min_value=0, max_value=100, value=50, step=5,
+    )
+    hop_radius = st.slider(
+        "Subgraph Extraction Hops (neighborhood radius around flagged nodes)",
+        min_value=1, max_value=4, value=2,
+    )
+
+    run_pipeline = st.button("🚀 Run Hybrid Detection Pipeline")
 
     # Shared State for Results
     if "suspicion_scores" not in st.session_state:
         st.session_state.suspicion_scores = {}
     if "detected_rings" not in st.session_state:
         st.session_state.detected_rings = []
-    
-    # GNN Execution
-    if train_btn:
-        with st.spinner("Preparing Graph Data..."):
-            # Prepare data
-            # For this demo, we treat it as unsupervised/self-supervised or need labels.
-            # Challenge says "Suspicion Score".
-            # In a real scenario, we'd train on known patterns or use anomaly detection.
-            # Here, I'll assume we have some ground truth for training (from the generator) 
-            # OR I will use the injected patterns as 'pseudo-labels' to demonstrate the efficient learning.
-            
-            # Let's load the ground truth if available to train the model, 
-            # demonstrating the model's ability to learn the patterns.
+    if "subgraph_nodes" not in st.session_state:
+        st.session_state.subgraph_nodes = []
+
+    if run_pipeline:
+        st.divider()
+        pipeline_start = time.time()
+
+        # ── Stage 1: GNN Scoring ──────────────────────────────────────────
+        st.markdown("#### Stage 1 — GNN Fast Filter (GraphSAGE)")
+        with st.spinner("Preparing graph data for GNN..."):
             labels_df = None
             if os.path.exists("data/ground_truth.json"):
-                 with open("data/ground_truth.json", "r") as f:
-                     gt = json.load(f)
-                 
-                 # Construct labels dataframe from ground truth
-                 sus_accs = {item['account_id']: 1 for item in gt['suspicious_accounts']}
-                 
-                 # We need all accounts
-                 start_time = time.time()
-                 data = prepare_graph_data(df) # Get mapping
-                 
-                 # Create label dataframe
-                 acc_list = list(data.account_map.keys())
-                 labels = [sus_accs.get(acc, 0) for acc in acc_list]
-                 labels_df = pd.DataFrame({'account_id': acc_list, 'is_suspicious': labels})
-                 
-                 # Re-prepare with labels
-                 data = prepare_graph_data(df, labels_df)
+                with open("data/ground_truth.json", "r") as f:
+                    gt = json.load(f)
+                sus_accs = {item['account_id']: 1 for item in gt['suspicious_accounts']}
+                data = prepare_graph_data(df)
+                acc_list = list(data.account_map.keys())
+                labels = [sus_accs.get(acc, 0) for acc in acc_list]
+                labels_df = pd.DataFrame({'account_id': acc_list, 'is_suspicious': labels})
+                data = prepare_graph_data(df, labels_df)
             else:
-                 st.warning("No ground truth found for training. Using random weights (untrained) for demo.")
-                 data = prepare_graph_data(df)
+                st.warning("No ground truth found. Using untrained weights for demo.")
+                data = prepare_graph_data(df)
 
-        with st.spinner("Training GNN Model (GraphSAGE)..."):
-             # Train
-             model = train_model(data, epochs=50)
-             
-             # Predict
-             probs = predict(model, data)
-             
-             # Store scores
-             scores = {}
-             idx_to_acc = {v: k for k, v in data.account_map.items()}
-             for idx, prob in enumerate(probs):
-                 scores[idx_to_acc[idx]] = float(prob) * 100 # Scale to 0-100
-             
-             st.session_state.suspicion_scores = scores
-             st.success(f"GNN Training Complete in {time.time() - start_time:.2f}s")
-             
-             # Display Top Suspicious
-             st.markdown("#### Top High-Risk Accounts (GNN)")
-             top_risky = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:10]
-             st.table(pd.DataFrame(top_risky, columns=["Account ID", "Suspicion Score"]))
+        with st.spinner("Training GNN model..."):
+            model = train_model(data, epochs=200)
+            probs = predict(model, data)
 
-    # Graph Algo Execution
-    if detect_btn:
-        with st.spinner("Building NetworkX Graph..."):
-            G = build_graph(df)
-            
-        with st.spinner("Detecting Cycles (Ring Muling)..."):
-            cycles = detect_cycles(G)
-            
-        with st.spinner("Detecting Smurfing (Fan-in/Fan-out)..."):
-            smurfs = detect_smurfing(G)
-            
+            scores = {}
+            idx_to_acc = {v: k for k, v in data.account_map.items()}
+            for idx, prob in enumerate(probs):
+                scores[idx_to_acc[idx]] = float(prob) * 100
+            st.session_state.suspicion_scores = scores
+
+        stage1_time = time.time() - pipeline_start
+        high_risk_accounts = [acc for acc, s in scores.items() if s >= risk_threshold]
+
+        # Top-K fallback: always investigate at least the top 20 accounts
+        if len(high_risk_accounts) < 20:
+            sorted_all = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            high_risk_accounts = [acc for acc, _ in sorted_all[:20]]
+            st.info(
+                f"Only {sum(1 for _, s in scores.items() if s >= risk_threshold)} accounts "
+                f"above threshold — using **Top 20** accounts as fallback."
+            )
+
+        st.success(
+            f"Stage 1 complete in {stage1_time:.2f}s — "
+            f"{len(high_risk_accounts)} accounts proceeding to Stage 2"
+        )
+
+        st.markdown("**Top 10 High-Risk Accounts (GNN)**")
+        top_risky = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:10]
+        st.table(pd.DataFrame(top_risky, columns=["Account ID", "Suspicion Score"]))
+
+        # ── Stage 2: Subgraph Extraction ──────────────────────────────────
+        st.divider()
+        st.markdown("#### Stage 2 — Subgraph Extraction")
+        with st.spinner("Building full graph & extracting suspicious neighborhood..."):
+            G_full = build_graph(df)
+            subG = extract_suspicious_subgraph(G_full, high_risk_accounts, hops=hop_radius)
+            st.session_state.subgraph_nodes = list(subG.nodes())
+
+        st.success(
+            f"Extracted subgraph: **{subG.number_of_nodes()}** nodes, "
+            f"**{subG.number_of_edges()}** edges "
+            f"(from full graph of {G_full.number_of_nodes()} nodes, {G_full.number_of_edges()} edges)"
+        )
+
+        # ── Stage 3: Deterministic Search on Subgraph ─────────────────────
+        st.divider()
+        st.markdown("#### Stage 3 — Deterministic Cycle & Smurfing Detection")
+        st.caption("Running exact algorithms on the focused subgraph only.")
+
+        with st.spinner("Detecting cycles (ring muling) in subgraph..."):
+            cycles = detect_cycles(subG)
+        with st.spinner("Detecting smurfing (fan-in/fan-out) in subgraph..."):
+            smurfs = detect_smurfing(subG)
+
         st.session_state.detected_rings = []
-        
-        # Process Cycles
+
         for i, cycle in enumerate(cycles):
             st.session_state.detected_rings.append({
                 "ring_id": f"CYCLE_{i}",
                 "pattern_type": "cycle",
                 "member_accounts": cycle,
-                "risk_score": 90.0
+                "risk_score": 90.0,
             })
-            
-        # Process Smurfs
         for i, smurf in enumerate(smurfs):
-             st.session_state.detected_rings.append({
+            st.session_state.detected_rings.append({
                 "ring_id": f"SMURF_{i}",
                 "pattern_type": smurf['type'],
                 "member_accounts": smurf['members'] + [smurf['center']],
-                "risk_score": 80.0
+                "risk_score": 80.0,
             })
-            
-        st.success(f"Detected {len(cycles)} cycles and {len(smurfs)} smurfing patterns.")
-        
+
+        total_time = time.time() - pipeline_start
+        st.success(
+            f"Stage 3 complete — {len(cycles)} cycles, {len(smurfs)} smurfing patterns "
+            f"| Total pipeline time: **{total_time:.2f}s**"
+        )
+
         # Summary Table
         st.markdown("#### Fraud Ring Summary")
         if st.session_state.detected_rings:
@@ -155,11 +172,11 @@ with tab1:
                     "Ring ID": ring['ring_id'],
                     "Type": ring['pattern_type'],
                     "Members": len(ring['member_accounts']),
-                    "Risk Score": ring['risk_score']
+                    "Risk Score": ring['risk_score'],
                 })
             st.dataframe(pd.DataFrame(summary_data))
         else:
-            st.info("No rings detected.")
+            st.info("No rings detected in the extracted subgraph.")
 
 with tab2:
     st.markdown("### Interactive Graph Visualization")

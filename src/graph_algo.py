@@ -156,3 +156,29 @@ def detect_shells(G, min_path_length=3, max_tx_limit=5):
             shells.append(list(comp))
             
     return shells
+
+
+def extract_suspicious_subgraph(G, suspicious_nodes, hops=2):
+    """
+    Extracts a subgraph containing the suspicious nodes and their k-hop
+    neighborhood. This is the Stage 2 "Subgraph Extraction" step of the
+    hybrid funnel approach.
+
+    Args:
+        G: The full NetworkX graph.
+        suspicious_nodes: List of node IDs flagged by the GNN (Stage 1).
+        hops: Number of hops to expand around each suspicious node.
+
+    Returns:
+        A NetworkX subgraph containing only the relevant neighborhood.
+    """
+    neighborhood = set(suspicious_nodes)
+
+    for node in suspicious_nodes:
+        if node not in G:
+            continue
+        # ego_graph returns the subgraph induced by the k-hop neighborhood
+        ego = nx.ego_graph(G, node, radius=hops, undirected=False)
+        neighborhood.update(ego.nodes())
+
+    return G.subgraph(neighborhood).copy()

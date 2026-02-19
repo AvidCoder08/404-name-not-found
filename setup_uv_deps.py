@@ -35,17 +35,9 @@ def add_dependencies():
         subprocess.run(["uv", "add"] + packages, check=False)
 
     # Add torch packages
-    if torch_packages:
-        print(f"Adding {len(torch_packages)} torch/cuda packages...")
-        # We need to handle torch source. 
-        # Check if we should use cpu index. PROMPT said "torch==2.10.0+cpu" in requirements.
-        # So we probably want cpu.
-        
-        # We will add them with --extra-index-url https://download.pytorch.org/whl/cpu
-        # uv prefers --index-url for the primary source, but we want to mix.
-        # Actually, adding them with strict index is safer for torch.
-        
-        cmd = ["uv", "add"] + torch_packages + ["--extra-index-url", "https://download.pytorch.org/whl/cpu", "--index-strategy", "unsafe-best-match"]
+        # Add torch packages with standard index resolution (let uv decide)
+        # Verify cuda availability post-install if needed
+        cmd = ["uv", "add"] + torch_packages
         subprocess.run(cmd, check=False)
 
 if __name__ == "__main__":
