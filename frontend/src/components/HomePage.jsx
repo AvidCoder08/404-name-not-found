@@ -50,12 +50,15 @@ const StatCard = ({ title, value, icon, color, subtitle }) => (
 
 const RingSummaryCard = ({ ring }) => {
     const patternColors = {
-        cycle: '#F2B8B5',
-        fan_out: '#FFB74D',
-        fan_in: '#FFB74D',
-        layered_shell: '#D0BCFF',
+        cycle: '#34A853',
+        fan_out: '#4285F4',
+        fan_in: '#4285F4',
+        fan_in_smurfing: '#4285F4',
+        fan_out_smurfing: '#4285F4',
+        layered_shell: '#FBBC05',
+        layered_shell_network: '#FBBC05',
     };
-    const color = patternColors[ring.pattern_type] || '#CAC4D0';
+    const color = patternColors[ring.pattern_type] || '#9AA0A6';
 
     return (
         <Paper
@@ -98,6 +101,11 @@ const HomePage = ({ data }) => {
     const highRiskCount = suspicious_accounts.filter(acc => acc.suspicion_score >= 70).length;
     const topSuspicious = suspicious_accounts.slice(0, 5);
 
+    // Calculate fraud type stats
+    const cycleFraudCount = fraud_rings.filter(r => r.pattern_type === 'cycle').length;
+    const smurfFraudCount = fraud_rings.filter(r => r.pattern_type.includes('fan_out') || r.pattern_type.includes('fan_in')).length;
+    const shellFraudCount = fraud_rings.filter(r => r.pattern_type.includes('layered_shell')).length;
+
     return (
         <Box
             component={motion.div}
@@ -107,38 +115,54 @@ const HomePage = ({ data }) => {
         >
             {/* Summary Stats */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} sm={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <StatCard
                         title="Accounts Analyzed"
                         value={(summary.total_accounts_analyzed || summary.total_transactions || 0).toLocaleString()}
                         icon={<AccountBalanceWalletIcon sx={{ fontSize: 28 }} />}
-                        color="#D0BCFF"
+                        color="#4285F4"
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <StatCard
                         title="Flagged Accounts"
-                        value={summary.accounts_flagged}
+                        value={summary.suspicious_accounts_flagged || summary.accounts_flagged || 0}
                         icon={<WarningAmberIcon sx={{ fontSize: 28 }} />}
-                        color="#F2B8B5"
+                        color="#EA4335"
                         subtitle="Suspicion > 50%"
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <StatCard
                         title="High Risk Accounts"
                         value={highRiskCount}
                         icon={<SecurityIcon sx={{ fontSize: 28 }} />}
-                        color="#FFB74D"
+                        color="#FBBC05"
                         subtitle="Suspicion > 70%"
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={3}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <StatCard
-                        title="Fraud Rings Detected"
-                        value={summary.fraud_rings_detected}
+                        title="Cycle Fraud"
+                        value={cycleFraudCount}
                         icon={<GroupsIcon sx={{ fontSize: 28 }} />}
-                        color="#B6F2B5"
+                        color="#34A853"
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} lg={4}>
+                    <StatCard
+                        title="Smurf Fraud"
+                        value={smurfFraudCount}
+                        icon={<GroupsIcon sx={{ fontSize: 28 }} />}
+                        color="#4285F4"
+                    />
+                </Grid>
+                <Grid item xs={12} sm={6} lg={4}>
+                    <StatCard
+                        title="Shell Fraud"
+                        value={shellFraudCount}
+                        icon={<GroupsIcon sx={{ fontSize: 28 }} />}
+                        color="#FBBC05"
                     />
                 </Grid>
             </Grid>
@@ -148,7 +172,7 @@ const HomePage = ({ data }) => {
                 <Grid item xs={12} lg={6}>
                     <Paper elevation={0} sx={{ p: 3, border: '1px solid rgba(255,255,255,0.08)', height: '100%' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                            <TrendingUpIcon sx={{ color: '#F2B8B5' }} />
+                            <TrendingUpIcon sx={{ color: '#EA4335' }} />
                             <Typography variant="h6">Top Suspicious Accounts</Typography>
                         </Box>
                         <Divider sx={{ mb: 2, borderColor: 'rgba(255,255,255,0.08)' }} />
@@ -177,8 +201,8 @@ const HomePage = ({ data }) => {
                                     label={`${suspicion_score.toFixed(1)}%`}
                                     size="small"
                                     sx={{
-                                        bgcolor: suspicion_score >= 90 ? '#F2B8B520' : suspicion_score >= 70 ? '#FFB74D20' : '#B6F2B520',
-                                        color: suspicion_score >= 90 ? '#F2B8B5' : suspicion_score >= 70 ? '#FFB74D' : '#B6F2B5',
+                                        bgcolor: suspicion_score >= 90 ? '#EA433520' : suspicion_score >= 70 ? '#FBBC0520' : '#34A85320',
+                                        color: suspicion_score >= 90 ? '#EA4335' : suspicion_score >= 70 ? '#FBBC05' : '#34A853',
                                         fontWeight: 700,
                                     }}
                                 />
@@ -191,7 +215,7 @@ const HomePage = ({ data }) => {
                 <Grid item xs={12} lg={6}>
                     <Paper elevation={0} sx={{ p: 3, border: '1px solid rgba(255,255,255,0.08)', height: '100%' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                            <GroupsIcon sx={{ color: '#D0BCFF' }} />
+                            <GroupsIcon sx={{ color: '#4285F4' }} />
                             <Typography variant="h6">Detected Fraud Rings</Typography>
                         </Box>
                         <Divider sx={{ mb: 2, borderColor: 'rgba(255,255,255,0.08)' }} />
