@@ -92,11 +92,11 @@ const RingSummaryCard = ({ ring }) => {
 const HomePage = ({ data }) => {
     if (!data) return null;
 
-    const { summary, suspicion_scores, fraud_rings } = data;
-    const highRiskCount = Object.values(suspicion_scores).filter(s => s >= 70).length;
-    const topSuspicious = Object.entries(suspicion_scores)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
+    const { summary, suspicious_accounts, fraud_rings } = data;
+
+    // Calculate stats from suspicious_accounts list
+    const highRiskCount = suspicious_accounts.filter(acc => acc.suspicion_score >= 70).length;
+    const topSuspicious = suspicious_accounts.slice(0, 5);
 
     return (
         <Box
@@ -109,8 +109,8 @@ const HomePage = ({ data }) => {
             <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid item xs={12} sm={6} lg={3}>
                     <StatCard
-                        title="Total Transactions"
-                        value={summary.total_transactions.toLocaleString()}
+                        title="Accounts Analyzed"
+                        value={(summary.total_accounts_analyzed || summary.total_transactions || 0).toLocaleString()}
                         icon={<AccountBalanceWalletIcon sx={{ fontSize: 28 }} />}
                         color="#D0BCFF"
                     />
@@ -152,9 +152,9 @@ const HomePage = ({ data }) => {
                             <Typography variant="h6">Top Suspicious Accounts</Typography>
                         </Box>
                         <Divider sx={{ mb: 2, borderColor: 'rgba(255,255,255,0.08)' }} />
-                        {topSuspicious.map(([id, score], index) => (
+                        {topSuspicious.map(({ account_id, suspicion_score }, index) => (
                             <Box
-                                key={id}
+                                key={account_id}
                                 sx={{
                                     display: 'flex',
                                     justifyContent: 'space-between',
@@ -171,14 +171,14 @@ const HomePage = ({ data }) => {
                                     <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600, minWidth: 24 }}>
                                         #{index + 1}
                                     </Typography>
-                                    <Typography variant="body1" fontWeight={500}>{id}</Typography>
+                                    <Typography variant="body1" fontWeight={500}>{account_id}</Typography>
                                 </Box>
                                 <Chip
-                                    label={`${score.toFixed(1)}%`}
+                                    label={`${suspicion_score.toFixed(1)}%`}
                                     size="small"
                                     sx={{
-                                        bgcolor: score >= 90 ? '#F2B8B520' : score >= 70 ? '#FFB74D20' : '#B6F2B520',
-                                        color: score >= 90 ? '#F2B8B5' : score >= 70 ? '#FFB74D' : '#B6F2B5',
+                                        bgcolor: suspicion_score >= 90 ? '#F2B8B520' : suspicion_score >= 70 ? '#FFB74D20' : '#B6F2B520',
+                                        color: suspicion_score >= 90 ? '#F2B8B5' : suspicion_score >= 70 ? '#FFB74D' : '#B6F2B5',
                                         fontWeight: 700,
                                     }}
                                 />

@@ -53,14 +53,16 @@ const GraphVisualizer = ({ data }) => {
             });
         }
 
-        if (data.suspicion_scores) {
-            Object.entries(data.suspicion_scores).forEach(([id, score]) => {
-                if (score > 50) nodes.add(id);
+        const scoreMap = {};
+        if (data.suspicious_accounts) {
+            data.suspicious_accounts.forEach(acc => {
+                scoreMap[acc.account_id] = acc.suspicion_score;
+                if (acc.suspicion_score > 50) nodes.add(acc.account_id);
             });
         }
 
         const nodesArray = Array.from(nodes).map(id => {
-            const score = data.suspicion_scores ? (data.suspicion_scores[id] || 0) : 0;
+            const score = scoreMap[id] || 0;
             let color;
             if (score >= 90) color = '#F2B8B5';
             else if (score >= 70) color = '#FFB74D';

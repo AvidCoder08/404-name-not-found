@@ -20,11 +20,10 @@ const DownloadPage = ({ data }) => {
     const downloadCSV = () => {
         // Build CSV from suspicion scores
         const rows = [['Account ID', 'Suspicion Score', 'Risk Level']];
-        Object.entries(data.suspicion_scores)
-            .sort((a, b) => b[1] - a[1])
-            .forEach(([id, score]) => {
-                const risk = score >= 90 ? 'Critical' : score >= 70 ? 'High' : score >= 50 ? 'Medium' : 'Low';
-                rows.push([id, score.toFixed(2), risk]);
+        data.suspicious_accounts
+            .forEach(({ account_id, suspicion_score }) => {
+                const risk = suspicion_score >= 90 ? 'Critical' : suspicion_score >= 70 ? 'High' : suspicion_score >= 50 ? 'Medium' : 'Low';
+                rows.push([account_id, suspicion_score.toFixed(2), risk]);
             });
 
         const csv = rows.map(r => r.join(',')).join('\n');
