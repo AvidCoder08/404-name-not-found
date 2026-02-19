@@ -18,7 +18,7 @@ print("=" * 60)
 print("GNN MODEL — TRAIN & EVALUATE")
 print("=" * 60)
 
-saml_path = "SAML-D.csv"
+saml_path = "data/SAML-D.csv"
 
 # ── STEP 1: Train on first 100k rows ──
 print("\n[1/4] Loading training data (first 100k rows)...")

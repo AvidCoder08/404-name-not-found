@@ -1,0 +1,735 @@
+{
+  "suspicious_accounts": [
+    {
+      "account_id": "ACC_11137",
+      "is_suspicious": 1,
+      "ring_id": "RING_SHELL_000",
+      "detected_patterns": [
+        "layered_shell"
+      ]
+    },
+    {
+      "account_id": "ACC_16485",
+      "is_suspicious": 1,
+      "ring_id": "RING_SHELL_000",
+      "detected_patterns": [
+        "layered_shell"
+      ]
+    },
+    {
+      "account_id": "ACC_17140",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_18988",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_19586",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_20327",
+      "is_suspicious": 1,
+      "ring_id": "RING_SHELL_001",
+      "detected_patterns": [
+        "layered_shell"
+      ]
+    },
+    {
+      "account_id": "ACC_22521",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_22794",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_23158",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_001",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_23464",
+      "is_suspicious": 1,
+      "ring_id": "RING_SHELL_001",
+      "detected_patterns": [
+        "layered_shell"
+      ]
+    },
+    {
+      "account_id": "ACC_24210",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_29700",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_31198",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_31446",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_32842",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_33043",
+      "is_suspicious": 1,
+      "ring_id": "RING_SHELL_001",
+      "detected_patterns": [
+        "layered_shell"
+      ]
+    },
+    {
+      "account_id": "ACC_35093",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_35302",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_002",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_35942",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_36854",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_40061",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_40373",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_41298",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_43469",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_43498",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_43881",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_45031",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_46193",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_004",
+      "detected_patterns": [
+        "cycle_length_5"
+      ]
+    },
+    {
+      "account_id": "ACC_46496",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_001",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_48761",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_49718",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_50158",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_001",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_51371",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_54804",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_55640",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_57560",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_58331",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_60711",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_004",
+      "detected_patterns": [
+        "cycle_length_5"
+      ]
+    },
+    {
+      "account_id": "ACC_61406",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_004",
+      "detected_patterns": [
+        "cycle_length_5"
+      ]
+    },
+    {
+      "account_id": "ACC_61975",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_63458",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_63770",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_64105",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_66034",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_003",
+      "detected_patterns": [
+        "cycle_length_3"
+      ]
+    },
+    {
+      "account_id": "ACC_66539",
+      "is_suspicious": 1,
+      "ring_id": "RING_SHELL_000",
+      "detected_patterns": [
+        "layered_shell"
+      ]
+    },
+    {
+      "account_id": "ACC_66866",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_001",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_67633",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_67672",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_68091",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_000",
+      "detected_patterns": [
+        "cycle_length_3"
+      ]
+    },
+    {
+      "account_id": "ACC_70164",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_002",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_70456",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_71490",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_002",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_75486",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_77961",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_78215",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_004",
+      "detected_patterns": [
+        "cycle_length_5"
+      ]
+    },
+    {
+      "account_id": "ACC_79456",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_80860",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_81566",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_82221",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_83734",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_003",
+      "detected_patterns": [
+        "cycle_length_3"
+      ]
+    },
+    {
+      "account_id": "ACC_83967",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_84283",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_88810",
+      "is_suspicious": 1,
+      "ring_id": "RING_SHELL_000",
+      "detected_patterns": [
+        "layered_shell"
+      ]
+    },
+    {
+      "account_id": "ACC_90575",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_002",
+      "detected_patterns": [
+        "cycle_length_4"
+      ]
+    },
+    {
+      "account_id": "ACC_91523",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_004",
+      "detected_patterns": [
+        "cycle_length_5"
+      ]
+    },
+    {
+      "account_id": "ACC_94069",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_000",
+      "detected_patterns": [
+        "cycle_length_3"
+      ]
+    },
+    {
+      "account_id": "ACC_94191",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_94884",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_001",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_98440",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_003",
+      "detected_patterns": [
+        "cycle_length_3"
+      ]
+    },
+    {
+      "account_id": "ACC_98526",
+      "is_suspicious": 1,
+      "ring_id": "RING_CYCLE_000",
+      "detected_patterns": [
+        "cycle_length_3"
+      ]
+    },
+    {
+      "account_id": "ACC_99396",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_002",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    },
+    {
+      "account_id": "ACC_99945",
+      "is_suspicious": 1,
+      "ring_id": "RING_SMURF_000",
+      "detected_patterns": [
+        "smurfing_fan_out"
+      ]
+    }
+  ],
+  "fraud_rings": [
+    {
+      "ring_id": "RING_CYCLE_000",
+      "pattern_type": "cycle",
+      "member_accounts": [
+        "ACC_98526",
+        "ACC_94069",
+        "ACC_68091"
+      ],
+      "risk_score": 85.6
+    },
+    {
+      "ring_id": "RING_CYCLE_001",
+      "pattern_type": "cycle",
+      "member_accounts": [
+        "ACC_23158",
+        "ACC_50158",
+        "ACC_46496",
+        "ACC_66866"
+      ],
+      "risk_score": 83.4
+    },
+    {
+      "ring_id": "RING_CYCLE_002",
+      "pattern_type": "cycle",
+      "member_accounts": [
+        "ACC_70164",
+        "ACC_35302",
+        "ACC_90575",
+        "ACC_71490"
+      ],
+      "risk_score": 95.4
+    },
+    {
+      "ring_id": "RING_CYCLE_003",
+      "pattern_type": "cycle",
+      "member_accounts": [
+        "ACC_83734",
+        "ACC_66034",
+        "ACC_98440"
+      ],
+      "risk_score": 88.4
+    },
+    {
+      "ring_id": "RING_CYCLE_004",
+      "pattern_type": "cycle",
+      "member_accounts": [
+        "ACC_60711",
+        "ACC_91523",
+        "ACC_78215",
+        "ACC_46193",
+        "ACC_61406"
+      ],
+      "risk_score": 86.8
+    },
+    {
+      "ring_id": "RING_SMURF_000",
+      "pattern_type": "smurfing_fan_out",
+      "member_accounts": [
+        "ACC_70456",
+        "ACC_99945",
+        "ACC_40061",
+        "ACC_94191",
+        "ACC_82221",
+        "ACC_43469",
+        "ACC_61975",
+        "ACC_80860",
+        "ACC_32842",
+        "ACC_43498",
+        "ACC_51371",
+        "ACC_79456",
+        "ACC_57560",
+        "ACC_63458",
+        "ACC_22521"
+      ],
+      "risk_score": 88.1
+    },
+    {
+      "ring_id": "RING_SMURF_001",
+      "pattern_type": "smurfing_fan_out",
+      "member_accounts": [
+        "ACC_17140",
+        "ACC_43881",
+        "ACC_41298",
+        "ACC_35093",
+        "ACC_35942",
+        "ACC_58331",
+        "ACC_64105",
+        "ACC_31198",
+        "ACC_83967",
+        "ACC_18988",
+        "ACC_94884",
+        "ACC_40373",
+        "ACC_29700",
+        "ACC_67672",
+        "ACC_75486",
+        "ACC_19586",
+        "ACC_55640",
+        "ACC_67633"
+      ],
+      "risk_score": 96.5
+    },
+    {
+      "ring_id": "RING_SMURF_002",
+      "pattern_type": "smurfing_fan_out",
+      "member_accounts": [
+        "ACC_45031",
+        "ACC_63770",
+        "ACC_84283",
+        "ACC_36854",
+        "ACC_22794",
+        "ACC_24210",
+        "ACC_99396",
+        "ACC_49718",
+        "ACC_54804",
+        "ACC_77961",
+        "ACC_48761",
+        "ACC_81566",
+        "ACC_31446"
+      ],
+      "risk_score": 86.5
+    },
+    {
+      "ring_id": "RING_SHELL_000",
+      "pattern_type": "layered_shell",
+      "member_accounts": [
+        "ACC_88810",
+        "ACC_16485",
+        "ACC_66539",
+        "ACC_11137"
+      ],
+      "risk_score": 88.2
+    },
+    {
+      "ring_id": "RING_SHELL_001",
+      "pattern_type": "layered_shell",
+      "member_accounts": [
+        "ACC_23464",
+        "ACC_33043",
+        "ACC_20327"
+      ],
+      "risk_score": 89.6
+    }
+  ],
+  "summary": {
+    "total_accounts": 580,
+    "suspicious_accounts": 72,
+    "normal_accounts": 508,
+    "total_transactions": 4468,
+    "n_cycle_rings": 5,
+    "n_smurf_rings": 3,
+    "n_shell_chains": 2,
+    "n_merchant_traps": 5,
+    "n_payroll_traps": 3
+  }
+}

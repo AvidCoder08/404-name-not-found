@@ -154,68 +154,44 @@ hops = st.sidebar.slider(
 )
 
 st.sidebar.divider()
-st.sidebar.header("📂 Input Data")
-uploaded_file = st.sidebar.file_uploader("Upload Transactions CSV", type=["csv"])
+st.sidebar.header("📂 Data Input")
 
-# Sample size for analysis (SAML-D is 9.5M rows — we sample for speed)
-sample_size = st.sidebar.number_input(
-    "Max transactions to analyze",
+# --- TRAINING DATA (flexible format) ---
+st.sidebar.markdown("**Training Data** *(flexible format)*")
+train_file = st.sidebar.file_uploader("Upload Training CSV (with labels)", type=["csv"], key="train_csv")
+
+train_sample_size = st.sidebar.number_input(
+    "Training sample size",
     min_value=10_000, max_value=1_000_000, value=100_000, step=10_000,
-    help="For large datasets, a random sample is used for analysis speed."
+    help="Number of rows to use from training data."
 )
 
-if uploaded_file is None:
-    st.sidebar.info("Using default dataset: `SAML-D.csv`")
-    saml_path = "SAML-D.csv"
-    if os.path.exists(saml_path):
-        # Read only needed columns + sample for analysis performance
-        df = pd.read_csv(
-            saml_path,
-            usecols=['Time', 'Date', 'Sender_account', 'Receiver_account', 'Amount'],
-            nrows=sample_size,
-        )
-        # Map SAML-D columns to standard names
-        df = df.rename(columns={
-            'Sender_account': 'sender_id',
-            'Receiver_account': 'receiver_id',
-            'Amount': 'amount',
-        })
-        # Combine Date + Time into timestamp
-        if 'Date' in df.columns and 'Time' in df.columns:
-            df['timestamp'] = pd.to_datetime(
-                df['Date'].astype(str) + ' ' + df['Time'].astype(str),
-                errors='coerce'
-            )
-            df = df.drop(columns=['Date', 'Time'], errors='ignore')
-    else:
-        st.error("SAML-D.csv not found. Please upload a CSV.")
+st.sidebar.divider()
+
+# --- TEST DATA (strict PDF format) ---
+st.sidebar.markdown("**Test Data** *(requires: transaction_id, sender_id, receiver_id, amount, timestamp)*")
+test_file = st.sidebar.file_uploader("Upload Test CSV", type=["csv"], key="test_csv")
+
+REQUIRED_TEST_COLS = {'transaction_id', 'sender_id', 'receiver_id', 'amount', 'timestamp'}
+
+df = None  # Analysis dataset
+
+if test_file is not None:
+    df = pd.read_csv(test_file)
+    # Validate strict format
+    missing_cols = REQUIRED_TEST_COLS - set(df.columns)
+    if missing_cols:
+        st.sidebar.error(f"❌ Test CSV missing required columns: **{', '.join(missing_cols)}**")
+        st.sidebar.info("Required: `transaction_id, sender_id, receiver_id, amount, timestamp`")
+        df = None
         st.stop()
+    else:
+        st.sidebar.success(f"✅ Test CSV valid — **{len(df):,}** transactions")
+        df['sender_id'] = df['sender_id'].astype(str)
+        df['receiver_id'] = df['receiver_id'].astype(str)
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
 else:
-    df = pd.read_csv(uploaded_file, nrows=sample_size)
-    # Map common alternative column names
-    col_mapping = {
-        'sourceid': 'sender_id',
-        'destinationid': 'receiver_id',
-        'amountofmoney': 'amount',
-        'date': 'timestamp',
-        'Sender_account': 'sender_id',
-        'Receiver_account': 'receiver_id',
-        'Amount': 'amount',
-    }
-    df = df.rename(columns={k: v for k, v in col_mapping.items() if k in df.columns})
-    if 'Date' in df.columns and 'Time' in df.columns:
-        df['timestamp'] = pd.to_datetime(
-            df['Date'].astype(str) + ' ' + df['Time'].astype(str),
-            errors='coerce'
-        )
-        df = df.drop(columns=['Date', 'Time'], errors='ignore')
-
-df['sender_id'] = df['sender_id'].astype(str)
-df['receiver_id'] = df['receiver_id'].astype(str)
-if 'timestamp' in df.columns:
-    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-
-st.sidebar.success(f"Loaded **{len(df):,}** transactions")
+    st.sidebar.info("No test CSV uploaded. Upload one to analyze.")
 
 # ==========================================
 # SESSION STATE
@@ -251,72 +227,104 @@ with tab1:
         train_btn = st.button("🧠 Train & Save GNN Model", use_container_width=True)
 
     with col_analyze:
-        st.markdown("##### 2️⃣ Analyze Dataset")
-        analyze_btn = st.button(
-            "🔍 Analyze Dataset" + (" (model ready)" if model_exists() else " (no model)"),
-            use_container_width=True,
-            disabled=not model_exists()
-        )
+        st.markdown("##### 2️⃣ Analyze Test Dataset")
+        can_analyze = model_exists() and df is not None
+        if not model_exists():
+            analyze_label = "🔍 Analyze (no model)"
+        elif df is None:
+            analyze_label = "🔍 Analyze (no test CSV)"
+        else:
+            analyze_label = "🔍 Analyze Dataset ✅"
+        analyze_btn = st.button(analyze_label, use_container_width=True, disabled=not can_analyze)
 
     # -----------------------------------------------
-    # TRAIN & SAVE (one-time on SAML-D.csv)
+    # TRAIN & SAVE
     # -----------------------------------------------
     if train_btn:
         start_time = time.time()
-
-        with st.spinner("Building labels from the loaded dataset..."):
-            # The SAML-D data we loaded already has Is_laundering column
-            # Re-read with the label column to get ground truth
-            saml_path = "SAML-D.csv"
-
-            if os.path.exists(saml_path):
-                df_with_labels = pd.read_csv(
-                    saml_path,
-                    usecols=['Sender_account', 'Receiver_account', 'Amount', 'Is_laundering'],
-                    nrows=sample_size,
-                )
-                df_with_labels = df_with_labels.rename(columns={
-                    'Sender_account': 'sender_id',
-                    'Receiver_account': 'receiver_id',
-                    'Amount': 'amount',
-                })
-                df_with_labels['sender_id'] = df_with_labels['sender_id'].astype(str)
-                df_with_labels['receiver_id'] = df_with_labels['receiver_id'].astype(str)
-
-                # Derive per-account labels: suspicious if involved in ANY fraudulent transaction
-                fraud_txns = df_with_labels[df_with_labels['Is_laundering'] == 1]
-                suspicious_accounts = set(fraud_txns['sender_id'].unique()) | set(fraud_txns['receiver_id'].unique())
-                st.info(f"Found **{len(suspicious_accounts):,}** unique suspicious accounts from {len(fraud_txns):,} fraudulent transactions.")
-            else:
-                st.warning("SAML-D.csv not found. Falling back to ground_truth.json.")
-                if os.path.exists("data/ground_truth.json"):
-                    with open("data/ground_truth.json", "r") as f:
-                        gt = json.load(f)
-                    suspicious_accounts = {item['account_id'] for item in gt['suspicious_accounts']}
+        
+        # Determine training source
+        train_path = None
+        if train_file is not None:
+            train_path = train_file
+        elif os.path.exists("data/synthetic_train.csv"):
+            train_path = "data/synthetic_train.csv"
+            st.info("Using generated Synthetic Training Data with planted fraud patterns.")
+        elif os.path.exists("data/SAML-D.csv"):
+            train_path = "data/SAML-D.csv"
+            st.info("Using data/SAML-D.csv (default dataset).")
+        else:
+            st.error("No training data. Upload a CSV or run the generator script.")
+            st.stop()
+            
+        with st.spinner(f"Loading training data from {train_path}..."):
+            df_train = pd.read_csv(train_path, nrows=train_sample_size)
+            
+            # Flexible mapping
+            col_mapping = {
+                'Sender_account': 'sender_id', 'Receiver_account': 'receiver_id',
+                'Amount': 'amount', 'Is_laundering': 'is_laundering',
+                'sourceid': 'sender_id', 'destinationid': 'receiver_id',
+                'amountofmoney': 'amount', 
+                'is_suspicious': 'is_laundering' # synthetic labels use is_suspicious=1
+            }
+            df_train = df_train.rename(columns={k: v for k, v in col_mapping.items() if k in df_train.columns})
+            
+            # Timestamp handling (critical for new features)
+            if 'timestamp' not in df_train.columns:
+                if 'Date' in df_train.columns and 'Time' in df_train.columns:
+                    df_train['timestamp'] = pd.to_datetime(
+                        df_train['Date'].astype(str) + ' ' + df_train['Time'].astype(str), errors='coerce')
+                    df_train = df_train.drop(columns=['Date', 'Time'], errors='ignore')
                 else:
-                    st.error("No label source found. Cannot train without labels.")
-                    st.stop()
+                    st.warning("Training data lacks timestamp. Temporal features will be zero.")
+                    df_train['timestamp'] = pd.NaT
 
-        with st.spinner("Preparing graph data for training..."):
-            data = prepare_graph_data(df)
+            if 'is_laundering' not in df_train.columns and 'is_suspicious' not in df_train.columns:
+                 # Check if we have separate labels file for synthetic data
+                 if train_path == "data/synthetic_train.csv" and os.path.exists("data/synthetic_labels.csv"):
+                     labels_df = pd.read_csv("data/synthetic_labels.csv")
+                     # map labels
+                     acc_map = dict(zip(labels_df.account_id, labels_df.is_suspicious))
+                     # We need per-transaction labels for consistency in app logic, 
+                     # but actually GNN needs node labels. 
+                     # Let's just create the suspicious_accounts set directly.
+                     suspicious_accounts = set(labels_df[labels_df['is_suspicious']==1]['account_id'])
+                     st.info(f"Loaded labels from data/synthetic_labels.csv: {len(suspicious_accounts)} suspicious accounts.")
+                 else:
+                    st.error("Training CSV must have a label column (`is_laundering` or `is_suspicious`).")
+                    st.stop()
+            else:
+                # Derive per-account labels from transaction labels
+                fraud_txns = df_train[df_train['is_laundering'] == 1]
+                suspicious_accounts = set(fraud_txns['sender_id'].unique()) | set(fraud_txns['receiver_id'].unique())
+                st.info(f"Derived {len(suspicious_accounts)} suspicious accounts from transaction labels.")
+
+            df_train['sender_id'] = df_train['sender_id'].astype(str)
+            df_train['receiver_id'] = df_train['receiver_id'].astype(str)
+
+        with st.spinner("Preparing graph data (engineering 14 node features)..."):
+            # Must pass timestamp for temporal features!
+            df_graph = df_train[['sender_id', 'receiver_id', 'amount', 'timestamp']].copy()
+            data = prepare_graph_data(df_graph)
             acc_list = list(data.account_map.keys())
 
             labels = [1 if acc in suspicious_accounts else 0 for acc in acc_list]
             labels_df = pd.DataFrame({'account_id': acc_list, 'is_suspicious': labels})
-            data = prepare_graph_data(df, labels_df)
+            data = prepare_graph_data(df_graph, labels_df)
 
             sus_count = sum(labels)
             st.info(f"Label split: **{sus_count:,}** suspicious / **{len(labels) - sus_count:,}** benign nodes.")
 
-        with st.spinner("Training GNN Model (GraphSAGE, 200 epochs, class-weighted)..."):
-            model = train_model(data, epochs=200)
+        with st.spinner("Training GNN Model (3-layer GraphSAGE, Focal Loss, 500 epochs)..."):
+            model = train_model(data, epochs=500)
 
         with st.spinner("Saving model..."):
             save_model(model, data)
 
         elapsed = time.time() - start_time
         st.success(f"✅ Model trained and saved in {elapsed:.1f}s — you won't need to retrain again!")
-        st.rerun()  # Refresh so Analyze button becomes enabled
+        st.rerun()
 
     # -----------------------------------------------
     # ANALYZE DATASET (load pretrained → score → subgraph → patterns)

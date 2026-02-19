@@ -3,7 +3,7 @@ import pandas as pd
 # -----------------------------
 # 1️⃣ Load SAML-D Dataset
 # -----------------------------
-input_file = "SAML-D.csv"
+input_file = "data/SAML-D.csv"
 df = pd.read_csv(input_file)
 
 # -----------------------------
