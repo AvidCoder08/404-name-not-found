@@ -5,7 +5,7 @@ from datetime import timedelta
 
 def get_bounded_cycles(G, min_len=3, max_len=5):
     """Detect cycles of length 3 to 5 in the subgraph."""
-    cycles = []
+    raw_cycles = []
     # simple_cycles is too slow for dense graphs, but we need strictly bounded cycles.
     # The app.py iterative DFS approach:
     for start_node in G.nodes():
@@ -21,10 +21,79 @@ def get_bounded_cycles(G, min_len=3, max_len=5):
                     # Canonical check: only add if start_node is the smallest in the path
                     # This avoids adding the same cycle rotated (e.g. 1-2-3 vs 2-3-1)
                     if min(path) == start_node:
-                        cycles.append(path)
+                        raw_cycles.append(path)
                 elif neighbor not in path:
                     stack.append((neighbor, path + [neighbor]))
-    return cycles
+    
+    # Filter for temporal consistency
+    valid_cycles = []
+    for cycle in raw_cycles:
+        # Check if "real" (temporally consistent)
+        # We need to find ONE valid flow sequence (edges strictly increasing in time)
+        
+        edge_timestamps = []
+        possible = True
+        
+        for i in range(len(cycle)):
+            u = cycle[i]
+            v = cycle[(i + 1) % len(cycle)]
+            if not G.has_edge(u, v):
+                possible = False
+                break
+            
+            # Get all timestamps for this edge (u, v)
+            ts_list = []
+            # G is likely a MultiDiGraph, so we iterate over keys
+            if G.is_multigraph():
+                 for k, data in G[u][v].items():
+                    if 'timestamp' in data:
+                        ts = data['timestamp']
+                        # Ensure it's a pandas timestamp or datetime
+                        if isinstance(ts, str):
+                            ts = pd.to_datetime(ts)
+                        ts_list.append(ts)
+            else:
+                data = G[u][v]
+                if 'timestamp' in data:
+                    ts = data['timestamp']
+                    if isinstance(ts, str):
+                        ts = pd.to_datetime(ts)
+                    ts_list.append(ts)
+            
+            edge_timestamps.append(ts_list)
+        
+        if not possible:
+            continue
+
+        # DFS to find increasing path
+        def find_increasing_path(idx, current_chain_len, last_ts, start_idx):
+            if current_chain_len == len(cycle):
+                return True
+            
+            next_edge_idx = (start_idx + idx) % len(cycle)
+            candidates = edge_timestamps[next_edge_idx]
+            
+            for ts in candidates:
+                if ts > last_ts:
+                    if find_increasing_path(idx + 1, current_chain_len + 1, ts, start_idx):
+                        return True
+            return False
+
+        # Try starting flow at each edge
+        is_temporal = False
+        L = len(cycle)
+        for start_idx in range(L):
+            for start_ts in edge_timestamps[start_idx]:
+                if find_increasing_path(1, 1, start_ts, start_idx):
+                    is_temporal = True
+                    break
+            if is_temporal:
+                break
+        
+        if is_temporal:
+            valid_cycles.append(cycle)
+            
+    return valid_cycles
 
 def get_temporal_smurfs(df):
     """Detect 10+ transactions Fan-in/Fan-out within a 72-hour window using Pandas."""

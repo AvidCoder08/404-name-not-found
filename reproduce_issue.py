@@ -31,7 +31,7 @@ def check_cycles():
     print("Detecting cycles with new DFS method...")
     import time
     start_time = time.time()
-    cycles = detect_cycles(G, max_length=5, max_cycles=1000, timeout=10)
+    cycles = detect_cycles(G, max_length=5)
     end_time = time.time()
     
     print(f"Detected {len(cycles)} cycles in {end_time - start_time:.2f}s.")
@@ -42,11 +42,11 @@ def check_cycles():
     start_time = time.time()
     # Assuming smurfing detection logic is imported or available in graph_algo
     from src.graph_algo import detect_smurfing, detect_shells
-    smurfs = detect_smurfing(G)
+    smurfs = detect_smurfing(df)
     end_time = time.time()
     print(f"Detected {len(smurfs)} smurfing patterns in {end_time - start_time:.2f}s.")
     for i, s in enumerate(smurfs[:3]):
-        print(f"Smurf {i+1}: Type={s['type']}, Center={s['center']}, Count={s['count']}")
+        print(f"Smurf {i+1}: Type={s['type']}, Center={s['center']}, Count={len(s['members'])}")
 
 
     print("\nDetecting Shells...")
