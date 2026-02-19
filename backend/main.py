@@ -185,9 +185,12 @@ async def analyze(file: UploadFile = File(...)):
             }) + "\n"
 
             # ── Detect Smurfing ───────────────────────────────────────
-            yield json.dumps({"progress": 82, "step": "smurfing", "log": "Detecting smurfing patterns..."}) + "\n"
-            # MODIFIED: Pass df instead of G to match the reverted pure-pandas logic
-            smurfs = await loop.run_in_executor(_executor, functools.partial(detect_smurfing, df))
+            # Create sub_df from subG for smurfing detection to respect GNN filtering
+            sub_nodes = set(subG.nodes())
+            sub_df = df[df['sender_id'].isin(sub_nodes) & df['receiver_id'].isin(sub_nodes)].copy()
+            
+            yield json.dumps({"progress": 82, "step": "smurfing", "log": "Detecting smurfing patterns on subgraph..."}) + "\n"
+            smurfs = await loop.run_in_executor(_executor, functools.partial(detect_smurfing, sub_df))
 
             for smurf in smurfs:
                 rings.append({
@@ -207,8 +210,9 @@ async def analyze(file: UploadFile = File(...)):
             }) + "\n"
 
             # ── Detect Shells ─────────────────────────────────────────
-            yield json.dumps({"progress": 92, "step": "shells", "log": "Detecting shell patterns..."}) + "\n"
-            shells = await loop.run_in_executor(_executor, functools.partial(detect_shells, G))
+            yield json.dumps({"progress": 92, "step": "shells", "log": "Detecting shell patterns on subgraph..."}) + "\n"
+            # Use subG for shells instead of full G
+            shells = await loop.run_in_executor(_executor, functools.partial(detect_shells, subG))
 
             for shell in shells:
                 rings.append({
