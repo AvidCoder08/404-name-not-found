@@ -57,30 +57,93 @@ def _build_graph_nodes_links(suspicion_scores, fraud_rings):
     nodes = {}
     links = []
 
+    # Map pattern types to colors
+    # Cycle: Red/Pink, Smurf: Orange, Shell: Purple, Default: Grey
+    PATTERN_COLORS = {
+        'cycle': '#F2B8B5',
+        'fan_in_smurfing': '#FFB74D',
+        'fan_out_smurfing': '#FFB74D',
+        'layered_shell': '#D0BCFF',
+        'high_gnn_score': '#FFD8E4' # Soft pink for GNN-only
+    }
+
+    # Track which accounts are in which patterns
+    acc_patterns = {}
+    for ring in fraud_rings:
+        p_type = ring["pattern_type"]
+        for m in ring["member_accounts"]:
+            if m not in acc_patterns:
+                acc_patterns[m] = set()
+            acc_patterns[m].add(p_type)
+
+    # Helper to get best pattern and color
+    def get_node_style(acc_id, score):
+        patterns = list(acc_patterns.get(acc_id, []))
+        
+        # Priority: cycle > shell > smurfing
+        best_pattern = None
+        if 'cycle' in patterns:
+            best_pattern = 'cycle'
+        elif 'layered_shell' in patterns:
+            best_pattern = 'layered_shell'
+        elif any('smurfing' in p for p in patterns):
+            best_pattern = [p for p in patterns if 'smurfing' in p][0]
+        
+        if best_pattern:
+            return best_pattern, PATTERN_COLORS.get(best_pattern, '#CAC4D0')
+        
+        # Fallback to score-based if no pattern
+        if score >= 90: return 'high_risk', '#F2B8B5'
+        if score >= 70: return 'elevated_risk', '#FFB74D'
+        if score >= 50: return 'moderate_risk', '#D0BCFF'
+        return 'normal', '#CAC4D0'
+
     # Add scored nodes
     for acc_id, score in suspicion_scores.items():
-        color = '#F2B8B5' if score >= 90 else '#FFB74D' if score >= 70 else '#D0BCFF' if score >= 50 else '#CAC4D0'
+        pattern, color = get_node_style(acc_id, score)
         nodes[acc_id] = {
             "id": acc_id,
-            "val": max(score / 10, 2),
+            "val": max(score / 10, 3 if pattern != 'normal' else 2),
             "color": color,
             "score": score,
+            "pattern": pattern
         }
 
     # Add ring nodes/links
     for ring in fraud_rings:
         members = ring["member_accounts"]
         pattern = ring["pattern_type"]
+        
         for m in members:
             if m not in nodes:
-                nodes[m] = {"id": m, "val": 3, "color": "#CAC4D0", "score": 0}
+                # If for some reason GNN missed a node but it's in a ring
+                p, color = get_node_style(m, 0)
+                nodes[m] = {
+                    "id": m, 
+                    "val": 4, 
+                    "color": color, 
+                    "score": 0,
+                    "pattern": p
+                }
+        
         if pattern in ('cycle', 'layered_shell'):
             for i in range(len(members)):
-                links.append({"source": members[i], "target": members[(i + 1) % len(members)], "type": pattern})
-        elif pattern in ('fan_out', 'fan_in'):
+                links.append({
+                    "source": members[i], 
+                    "target": members[(i + 1) % len(members)], 
+                    "type": pattern,
+                    "color": PATTERN_COLORS.get(pattern, 'rgba(255,255,255,0.2)')
+                })
+        elif pattern in ('fan_out_smurfing', 'fan_in_smurfing'):
+            # center is members[-1] as per graph_algo smurf detection
             center = members[-1]
             for i in range(len(members) - 1):
-                links.append({"source": center, "target": members[i], "type": pattern})
+                links.append({
+                    "source": center if 'fan_out' in pattern else members[i], 
+                    "target": members[i] if 'fan_out' in pattern else center, 
+                    "type": pattern,
+                    "color": PATTERN_COLORS.get(pattern, 'rgba(255,255,255,0.2)')
+                })
         else:
             for i in range(len(members)):
                 links.append({"source": members[i], "target": members[(i + 1) % len(members)], "type": "other"})
