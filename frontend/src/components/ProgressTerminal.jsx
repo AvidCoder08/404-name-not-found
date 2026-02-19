@@ -216,15 +216,19 @@ const ProgressTerminal = ({ progress, graphData, currentStep, statusMessage }) =
                     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#F2B8B5' }} />
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Critical</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Cycles</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#FFB74D' }} />
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>High</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Smurfing</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#D0BCFF' }} />
-                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Medium</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Shells</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#CAC4D0' }} />
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Normal</Typography>
                         </Box>
                     </Box>
                 </Box>

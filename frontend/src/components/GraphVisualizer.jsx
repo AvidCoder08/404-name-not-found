@@ -63,17 +63,38 @@ const GraphVisualizer = ({ data }) => {
 
         const nodesArray = Array.from(nodes).map(id => {
             const score = scoreMap[id] || 0;
+
+            // Check if backend already provided style (for data.graph_update or similar)
+            // But the 'data' prop here is the final result object
+
+            // Let's find if this node is in any ring to determine pattern
+            let pattern = 'normal';
+            if (data.fraud_rings) {
+                for (const ring of data.fraud_rings) {
+                    if (ring.member_accounts.includes(id)) {
+                        pattern = ring.pattern_type;
+                        break;
+                    }
+                }
+            }
+
             let color;
-            if (score >= 90) color = '#F2B8B5';
-            else if (score >= 70) color = '#FFB74D';
-            else if (score >= 50) color = '#D0BCFF';
-            else color = '#CAC4D0';
+            if (pattern === 'cycle') color = '#F2B8B5';
+            else if (pattern.includes('smurfing')) color = '#FFB74D';
+            else if (pattern === 'layered_shell') color = '#D0BCFF';
+            else {
+                if (score >= 90) color = '#F2B8B5';
+                else if (score >= 70) color = '#FFB74D';
+                else if (score >= 50) color = '#D0BCFF';
+                else color = '#CAC4D0';
+            }
 
             return {
                 id,
-                val: Math.max(score / 10, 2),
+                val: Math.max(score / 10, pattern !== 'normal' ? 4 : 2),
                 color,
                 score,
+                pattern
             };
         });
 
@@ -143,11 +164,12 @@ const GraphVisualizer = ({ data }) => {
 
         // Label
         if (isHighlight || size > 5) {
+            const patternLabel = node.pattern && node.pattern !== 'normal' && isHighlight ? ` (${node.pattern})` : '';
             ctx.font = `${isHighlight ? 'bold ' : ''}${Math.max(3, size * 0.8)}px "Google Sans Flex", sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = '#fff';
-            ctx.fillText(node.id, node.x, node.y + size + 6);
+            ctx.fillText(`${node.id}${patternLabel}`, node.x, node.y + size + 6);
         }
     }, [highlightNodes]);
 
@@ -173,19 +195,19 @@ const GraphVisualizer = ({ data }) => {
                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#F2B8B5' }} />
-                            <Typography variant="caption">Critical (&ge;90%)</Typography>
+                            <Typography variant="caption">Fraud Cycle</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#FFB74D' }} />
-                            <Typography variant="caption">High (&ge;70%)</Typography>
+                            <Typography variant="caption">Smurfing</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#D0BCFF' }} />
-                            <Typography variant="caption">Medium (&ge;50%)</Typography>
+                            <Typography variant="caption">Layered Shell</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#CAC4D0' }} />
-                            <Typography variant="caption">Low</Typography>
+                            <Typography variant="caption">Normal/Low Risk</Typography>
                         </Box>
                     </Box>
                 </Box>

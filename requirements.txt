@@ -19,7 +19,3 @@ torch-cluster
 torch-spline-conv
 torch-geometric
 
-# ── Utilities ──
-tqdm
-joblib
-Faker
