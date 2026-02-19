@@ -20,16 +20,16 @@ def build_graph(df):
         G.add_edge(s, r, amount=a, timestamp=t, transaction_id=tid)
     return G
 
-def _detect_cycles_inner(G, max_length=5, max_cycles=500):
+def _detect_cycles_inner(G, max_length=5, max_cycles=100, max_scc_size=50):
     """Inner function for cycle detection (runs in a thread with timeout)."""
     found_cycles = set()
     try:
-        sccs = [scc for scc in nx.strongly_connected_components(G) if len(scc) >= 3]
+        sccs = [scc for scc in nx.strongly_connected_components(G) if 3 <= len(scc) <= max_scc_size]
+        # Sort smallest first — small SCCs are fast and most likely to be real fraud rings
+        sccs.sort(key=len)
         for scc in sccs:
             subgraph = G.subgraph(scc)
-            for cycle in nx.simple_cycles(subgraph):
-                if len(cycle) > max_length:
-                    continue
+            for cycle in nx.simple_cycles(subgraph, length_bound=max_length):
                 if len(cycle) >= 3:
                     min_node_idx = cycle.index(min(cycle))
                     normalized = tuple(cycle[min_node_idx:] + cycle[:min_node_idx])
@@ -43,9 +43,9 @@ def _detect_cycles_inner(G, max_length=5, max_cycles=500):
     return [list(c) for c in found_cycles]
 
 
-def detect_cycles(G, max_length=5, max_cycles=500, timeout=5):
+def detect_cycles(G, max_length=5, max_cycles=100, timeout=3):
     """
-    Detects simple cycles with a hard timeout (default 5s) to prevent hanging.
+    Detects simple cycles with a hard timeout (default 3s) to prevent hanging.
     """
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(_detect_cycles_inner, G, max_length, max_cycles)
