@@ -13,6 +13,10 @@ networkx
 # ── PyTorch (CPU-only for Render) ──
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
+torch-scatter
+torch-sparse
+torch-cluster
+torch-spline-conv
 torch-geometric
 
 # ── Utilities ──
