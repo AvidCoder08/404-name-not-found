@@ -30,10 +30,19 @@ def _detect_cycles_inner(G, max_length=5, max_cycles=500):
     _stop_event.clear()
     found_cycles = set()
     iterations = 0
-    MAX_ITERATIONS = 50000  # Hard bail-out to prevent GIL-bound hanging
+    MAX_ITERATIONS = 1000000  # Increased limit for better accuracy
     try:
         # Convert to simple DiGraph to reduce edge count for cycle detection
         simple_G = nx.DiGraph(G)
+        
+        # Optimization: Remove reciprocal edges (A<->B) because we only care about cycles >= 3
+        # Reciprocal edges create thousands of trivial 2-cycles that clog the search
+        reciprocal_edges = []
+        for u, v in simple_G.edges():
+            if simple_G.has_edge(v, u):
+                reciprocal_edges.append((u, v))
+        simple_G.remove_edges_from(reciprocal_edges)
+
         sccs = [scc for scc in nx.strongly_connected_components(simple_G) if len(scc) >= 3]
         for scc in sccs:
             if _stop_event.is_set():
@@ -86,6 +95,7 @@ def detect_smurfing(G, time_window_hours=72, min_fan=10):
     Detects Fan-in (aggregators) and Fan-out (distributors) patterns.
     """
     smurfs = []
+    time_window = pd.Timedelta(hours=time_window_hours)
     
     # Iterate over all nodes
     for node in G.nodes():
@@ -93,8 +103,8 @@ def detect_smurfing(G, time_window_hours=72, min_fan=10):
         in_edges = list(G.in_edges(node, data=True))
         if len(in_edges) >= min_fan:
             # Check time window
-            timestamps = sorted([d['timestamp'] for u, v, d in in_edges])
-            if timestamps and (timestamps[-1] - timestamps[0]) <= timedelta(hours=time_window_hours):
+            timestamps = sorted([pd.Timestamp(d['timestamp']) for u, v, d in in_edges])
+            if timestamps and (timestamps[-1] - timestamps[0]) <= time_window:
                  smurfs.append({
                      "type": "fan_in",
                      "center": node,
@@ -105,8 +115,8 @@ def detect_smurfing(G, time_window_hours=72, min_fan=10):
         # Fan-out
         out_edges = list(G.out_edges(node, data=True))
         if len(out_edges) >= min_fan:
-            timestamps = sorted([d['timestamp'] for u, v, d in out_edges])
-            if timestamps and (timestamps[-1] - timestamps[0]) <= timedelta(hours=time_window_hours):
+            timestamps = sorted([pd.Timestamp(d['timestamp']) for u, v, d in out_edges])
+            if timestamps and (timestamps[-1] - timestamps[0]) <= time_window:
                 smurfs.append({
                      "type": "fan_out",
                      "center": node,

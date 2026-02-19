@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Modified imports to match new src structure
 from src.gnn_model import predict, prepare_inference_data, load_model
-from src.graph_algo import build_graph, detect_cycles, detect_smurfing, detect_shells
+from src.graph_algo import build_graph, detect_cycles, detect_smurfing, detect_shells, extract_suspicious_subgraph
 
 app = FastAPI()
 
@@ -155,8 +155,13 @@ async def analyze(file: UploadFile = File(...)):
             yield json.dumps({"progress": 65, "step": "graph", "log": f"Graph built: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges."}) + "\n"
 
             # ── Detect Cycles ─────────────────────────────────────────
-            yield json.dumps({"progress": 70, "step": "cycles", "log": "Detecting cycles..."}) + "\n"
-            cycles = await loop.run_in_executor(_executor, functools.partial(detect_cycles, G))
+            suspicious_nodes = [n for n, s in suspicion_scores.items() if s > 50]
+            yield json.dumps({"progress": 70, "step": "cycles", "log": "Extracting suspicious subgraph..."}) + "\n"
+            
+            subG = await loop.run_in_executor(_executor, functools.partial(extract_suspicious_subgraph, G, suspicious_nodes, hops=1))
+            
+            yield json.dumps({"progress": 72, "step": "cycles", "log": f"Detecting cycles in subgraph ({subG.number_of_nodes()} nodes)..."}) + "\n"
+            cycles = await loop.run_in_executor(_executor, functools.partial(detect_cycles, subG))
 
             rings = []
             ring_counter = 1
