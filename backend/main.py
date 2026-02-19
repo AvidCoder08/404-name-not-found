@@ -93,6 +93,8 @@ async def analyze(file: UploadFile = File(...)):
     loop = asyncio.get_event_loop()
 
     async def process_and_stream():
+        import time
+        start_time_process = time.time()
         yield json.dumps({"progress": 5, "step": "upload", "log": "Reading CSV file..."}) + "\n"
         await asyncio.sleep(0.05)
 
@@ -184,7 +186,8 @@ async def analyze(file: UploadFile = File(...)):
 
             # ── Detect Smurfing ───────────────────────────────────────
             yield json.dumps({"progress": 82, "step": "smurfing", "log": "Detecting smurfing patterns..."}) + "\n"
-            smurfs = await loop.run_in_executor(_executor, functools.partial(detect_smurfing, G))
+            # MODIFIED: Pass df instead of G to match the reverted pure-pandas logic
+            smurfs = await loop.run_in_executor(_executor, functools.partial(detect_smurfing, df))
 
             for smurf in smurfs:
                 rings.append({
@@ -216,15 +219,68 @@ async def analyze(file: UploadFile = File(...)):
                 })
                 ring_counter += 1
 
+
             # ── Final result ──────────────────────────────────────────
+            import time
+            end_time_process = time.time()
+            processing_time = end_time_process - start_time_process # start_time_process needs to be defined earlier
+
+            # Transform suspicion_scores dict to list of objects as per PDF
+            suspicious_accounts_list = []
+            
+            # Helper to find rings and patterns for an account
+            acc_rings_map = {}
+            for r in rings:
+                for member in r['member_accounts']:
+                    if member not in acc_rings_map:
+                        acc_rings_map[member] = []
+                    acc_rings_map[member].append(r)
+            
+            # Sort scores descending
+            sorted_scores = sorted(suspicion_scores.items(), key=lambda x: x[1], reverse=True)
+            
+            for acc_id, score in sorted_scores:
+                # Get patterns and ring_ids
+                associated_rings = acc_rings_map.get(acc_id, [])
+                patterns = sorted(list(set(r['pattern_type'] for r in associated_rings)))
+                # If high score but no specific ring pattern (e.g. just GNN flagged), maybe add "high_risk_score"
+                if score > 50 and not patterns:
+                    patterns.append("high_gnn_score")
+                    
+                # PDF example showed "cycle_length_3", "high_velocity". 
+                # We can add derived patterns if we want, but for now use pattern_type.
+                
+                # PDF shows single "ring_id". If in multiple, maybe join them or just pick first?
+                # Let's pick the first one or join. PDF example: "ring_id": "RING_001"
+                ring_id_str = associated_rings[0]['ring_id'] if associated_rings else None
+                
+                suspicious_accounts_list.append({
+                    "account_id": acc_id,
+                    "suspicion_score": round(score, 1),
+                    "detected_patterns": patterns,
+                    "ring_id": ring_id_str
+                })
+            
+            # PDF Summary keys:
+            # "total_accounts_analyzed": 500
+            # "suspicious_accounts_flagged": 15
+            # "fraud_rings_detected": 4
+            # "processing_time_seconds": 2.3
+            
             summary = {
-                "total_transactions": len(df),
-                "accounts_flagged": len([s for s in suspicion_scores.values() if s > 50]),
+                "total_accounts_analyzed": len(df['sender_id'].unique()) + len(df['receiver_id'].unique()), # Approximate untion might be better but this is fast
+                                           # actually len(G.nodes()) is better if G is available
+                "suspicious_accounts_flagged": len([s for s in suspicion_scores.values() if s > 50]),
                 "fraud_rings_detected": len(rings),
+                "processing_time_seconds": round(processing_time, 2)
             }
+            
+            # Update summary with exact count from Graph
+            if 'G' in locals():
+                summary["total_accounts_analyzed"] = G.number_of_nodes()
 
             result_data = {
-                "suspicion_scores": suspicion_scores,
+                "suspicious_accounts": suspicious_accounts_list,
                 "fraud_rings": rings,
                 "summary": summary,
             }
@@ -233,7 +289,7 @@ async def analyze(file: UploadFile = File(...)):
             final_nodes, final_links = _build_graph_nodes_links(suspicion_scores, rings)
             yield json.dumps({
                 "progress": 100, "step": "done",
-                "log": "Analysis complete!",
+                "log": f"Analysis complete in {processing_time:.2f}s!",
                 "graph_update": {"nodes": final_nodes, "links": final_links},
                 "result": result_data
             }) + "\n"
