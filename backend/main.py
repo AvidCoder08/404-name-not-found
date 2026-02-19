@@ -166,22 +166,23 @@ async def analyze(file: UploadFile = File(...)):
             suspicious_nodes = [n for n, s in suspicion_scores.items() if s > sus_threshold]
             
             use_full_graph = False
-            log_msg = "Extracting suspicious subgraph (Threshold 50%)..."
             
-            if G.number_of_nodes() < 10000:
-                 # For hackathon/demo datasets, full graph analysis is feasible and prevents false negatives from "bad" models.
-                 # The user explicitly noted "bailing out" issues causing missed fraud.
-                 log_msg = f"Graph small ({G.number_of_nodes()} nodes). Running analysis on FULL GRAPH for maximum recall."
-                 use_full_graph = True
-                 subG = G
-            elif len(suspicious_nodes) < 10:
-                 # Fallback if model scores are too low
+            # STRICT GNN FILTERING:
+            # We must use the GNN to filter the graph. If the GNN misses everything (low scores),
+            # we simply lower the threshold to find *something* to analyze, but we do NOT
+            # revert to the full graph, as that re-introduces massive false positives (merchants, etc).
+            
+            if len(suspicious_nodes) < 10:
+                 # Fallback if model scores are too low - lower threshold to 10
                  sus_threshold = 10
                  suspicious_nodes = [n for n, s in suspicion_scores.items() if s > sus_threshold]
                  log_msg = f"GNN scores low. Lowering threshold to 10% to find artifacts. Found {len(suspicious_nodes)} nodes."
+                 # Use 2 hops to expand context since we have few starting points
                  subG = await loop.run_in_executor(_executor, functools.partial(extract_suspicious_subgraph, G, suspicious_nodes, hops=2))
             else:
-                 # Standard path
+                 # Standard path - high confidence nodes
+                 log_msg = f"Extracting suspicious subgraph based on GNN scores > {sus_threshold}..."
+                 # Use 1 hop to keep it tight around high-risk nodes
                  subG = await loop.run_in_executor(_executor, functools.partial(extract_suspicious_subgraph, G, suspicious_nodes, hops=1))
 
             yield json.dumps({"progress": 70, "step": "cycles", "log": log_msg}) + "\n"
