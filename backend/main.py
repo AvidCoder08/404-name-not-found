@@ -157,12 +157,36 @@ async def analyze(file: UploadFile = File(...)):
             yield json.dumps({"progress": 65, "step": "graph", "log": f"Graph built: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges."}) + "\n"
 
             # ── Detect Cycles ─────────────────────────────────────────
-            suspicious_nodes = [n for n, s in suspicion_scores.items() if s > 50]
-            yield json.dumps({"progress": 70, "step": "cycles", "log": "Extracting suspicious subgraph..."}) + "\n"
+            # ── Detect Cycles ─────────────────────────────────────────
+            # High recall strategy:
+            # 1. If Graph is small (< 10k nodes), running on full graph is fast enough (and safer if GNN is weak).
+            # 2. If GNN flags very few nodes, lower threshold to avoid missing everything ("bailing out").
             
-            subG = await loop.run_in_executor(_executor, functools.partial(extract_suspicious_subgraph, G, suspicious_nodes, hops=1))
+            sus_threshold = 50
+            suspicious_nodes = [n for n, s in suspicion_scores.items() if s > sus_threshold]
             
-            yield json.dumps({"progress": 72, "step": "cycles", "log": f"Detecting cycles in subgraph ({subG.number_of_nodes()} nodes)..."}) + "\n"
+            use_full_graph = False
+            log_msg = "Extracting suspicious subgraph (Threshold 50%)..."
+            
+            if G.number_of_nodes() < 10000:
+                 # For hackathon/demo datasets, full graph analysis is feasible and prevents false negatives from "bad" models.
+                 # The user explicitly noted "bailing out" issues causing missed fraud.
+                 log_msg = f"Graph small ({G.number_of_nodes()} nodes). Running analysis on FULL GRAPH for maximum recall."
+                 use_full_graph = True
+                 subG = G
+            elif len(suspicious_nodes) < 10:
+                 # Fallback if model scores are too low
+                 sus_threshold = 10
+                 suspicious_nodes = [n for n, s in suspicion_scores.items() if s > sus_threshold]
+                 log_msg = f"GNN scores low. Lowering threshold to 10% to find artifacts. Found {len(suspicious_nodes)} nodes."
+                 subG = await loop.run_in_executor(_executor, functools.partial(extract_suspicious_subgraph, G, suspicious_nodes, hops=2))
+            else:
+                 # Standard path
+                 subG = await loop.run_in_executor(_executor, functools.partial(extract_suspicious_subgraph, G, suspicious_nodes, hops=1))
+
+            yield json.dumps({"progress": 70, "step": "cycles", "log": log_msg}) + "\n"
+            
+            yield json.dumps({"progress": 72, "step": "cycles", "log": f"Detecting cycles in graph ({subG.number_of_nodes()} nodes)..."}) + "\n"
             cycles = await loop.run_in_executor(_executor, functools.partial(detect_cycles, subG))
 
             rings = []
