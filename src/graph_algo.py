@@ -96,87 +96,170 @@ def get_bounded_cycles(G, min_len=3, max_len=5):
     return valid_cycles
 
 def get_temporal_smurfs(df):
-    """Detect 10+ transactions Fan-in/Fan-out within a 72-hour window using Pandas."""
+    """
+    Detect 10+ transactions Fan-in/Fan-out within a 72-hour window.
+    Improved with Merchant/Payroll Filtering:
+    - Exclude if Amount Coefficient of Variation (CV) > 0.5 (Merchants have variable amounts, mules have structured scale).
+    - Exclude if Flow Balance is normal for merchant (Fan-in should NOT just stay there, it should move out).
+    """
     smurfs = []
 
     if 'timestamp' not in df.columns:
         return []
 
+    # Helper for CV
+    def is_structured_amounts(amounts):
+        if len(amounts) < 2: return True
+        return (amounts.std() / (amounts.mean() + 1e-5)) < 0.5
+
     # Fan-in (Aggregator)
-    potential_fan_in = df.groupby('receiver_id')['sender_id'].nunique()
     # Filter for receivers with >= 10 unique senders
+    potential_fan_in = df.groupby('receiver_id')['sender_id'].nunique()
     for recv in potential_fan_in[potential_fan_in >= 10].index:
         # Get all txns for this receiver, sort by time
-        txns = df[df['receiver_id'] == recv].sort_values('timestamp').drop_duplicates('sender_id')
-        if len(txns) >= 10:
-            txns = txns.copy()
-            # Calculate time difference between transaction i and transaction i+9 (10th transaction)
-            # This checks if ANY window of 10 transactions happened within 72h
-            txns['time_diff'] = txns['timestamp'].diff(periods=9)
-            
-            if (txns['time_diff'] <= pd.Timedelta(hours=72)).any():
-                # Get the end time of the first matching window
-                match_row = txns[txns['time_diff'] <= pd.Timedelta(hours=72)].iloc[0]
-                end_time = match_row['timestamp']
-                start_time = end_time - pd.Timedelta(hours=72)
-                
-                # Retrieve all senders in that window
-                senders = df[
-                    (df['receiver_id'] == recv) &
-                    (df['timestamp'] >= start_time) &
-                    (df['timestamp'] <= end_time)
-                ]['sender_id'].unique().tolist()
-                
-                smurfs.append({"type": "fan_in_smurfing", "center": recv, "members": senders})
+        txns = df[df['receiver_id'] == recv].sort_values('timestamp')
+        
+        # Sliding window check
+        # We need to find ANY subset of 10+ transactions from different senders within 72h
+        # Simplified: Check if 10th txn - 1st txn <= 72h (for any window of size 10)
+        # But we need disjoint senders.
+        
+        # Let's iterate through windows of unique senders if possible, or just strict time window check
+        # Improved approach: Use a rolling window on time
+        
+        txns = txns.reset_index(drop=True)
+        if len(txns) < 10: continue
 
+        found = False
+        # Vectorized check for time window of at least 10 items
+        # checking txns[i+9] - txns[i]
+        indexer = pd.api.indexers.FixedForwardWindowIndexer(window_size=10)
+        # This is tricky with unique senders constraint.
+        # Let's stick to the heuristic: if raw count in 72h > 10, then check uniqueness.
+        
+        for i in range(len(txns) - 9):
+            window = txns.iloc[i:i+100] # Look ahead enough to find 10 unique
+            start_time = window.iloc[0]['timestamp']
+            end_time = start_time + pd.Timedelta(hours=72)
+            
+            valid_window = window[window['timestamp'] <= end_time]
+            unique_senders = valid_window['sender_id'].unique()
+            
+            if len(unique_senders) >= 10:
+                # FOUND CANDIDATE pattern
+                # NOW APPLY FILTERS (Merchant Filter)
+                amounts = valid_window['amount']
+                
+                # Filter 1: Structure check (Mules usually receive similar amounts)
+                # Merchants have high variance.
+                if not is_structured_amounts(amounts):
+                     # Likely a merchant with random purchases
+                     continue
+                
+                # Filter 2: Flow Balance (Fan-in only)
+                # Mules accumulate to PASS ON. Merchants accumulate to KEEP.
+                # Check total out vs total in for this account in the whole DF
+                total_in = df[df['receiver_id'] == recv]['amount'].sum()
+                total_out = df[df['sender_id'] == recv]['amount'].sum()
+                
+                # If they keep > 80% of money, likely a merchant/sink.
+                # Mule: total_out should be close to total_in (e.g. > 80% passed on)
+                flow_passed_ratio = total_out / (total_in + 1e-5)
+                if flow_passed_ratio < 0.1: # Keeps almost everything
+                    continue
+
+                smurfs.append({"type": "fan_in_smurfing", "center": recv, "members": unique_senders.tolist()})
+                found = True
+                break # Found one instance for this node, adequate for flagging
+                
     # Fan-out (Disperser)
     potential_fan_out = df.groupby('sender_id')['receiver_id'].nunique()
     for sender in potential_fan_out[potential_fan_out >= 10].index:
-        txns = df[df['sender_id'] == sender].sort_values('timestamp').drop_duplicates('receiver_id')
-        if len(txns) >= 10:
-            txns = txns.copy()
-            txns['time_diff'] = txns['timestamp'].diff(periods=9)
-            
-            if (txns['time_diff'] <= pd.Timedelta(hours=72)).any():
-                match_row = txns[txns['time_diff'] <= pd.Timedelta(hours=72)].iloc[0]
-                end_time = match_row['timestamp']
-                start_time = end_time - pd.Timedelta(hours=72)
-                
-                receivers = df[
-                    (df['sender_id'] == sender) &
-                    (df['timestamp'] >= start_time) &
-                    (df['timestamp'] <= end_time)
-                ]['receiver_id'].unique().tolist()
-                
-                smurfs.append({"type": "fan_out_smurfing", "center": sender, "members": receivers})
+        txns = df[df['sender_id'] == sender].sort_values('timestamp')
+        
+        txns = txns.reset_index(drop=True)
+        if len(txns) < 10: continue
 
+        for i in range(len(txns) - 9):
+            window = txns.iloc[i:i+100]
+            start_time = window.iloc[0]['timestamp']
+            end_time = start_time + pd.Timedelta(hours=72)
+            
+            valid_window = window[window['timestamp'] <= end_time]
+            unique_receivers = valid_window['receiver_id'].unique()
+            
+            if len(unique_receivers) >= 10:
+                # FOUND CANDIDATE
+                amounts = valid_window['amount']
+                
+                # Filter 1: Structure check (Payroll is structured, but so is muling)
+                # So this filter is less useful for fan-out (Payroll has fixed salaries).
+                # But legitimate payroll usually happens monthly/bi-weekly, not random 72h bursts?
+                # Actually payroll IS a burst.
+                # So we need to distinguish Payroll vs Mule Fan-out.
+                # Payroll: Source is a business (High degree, leaves system).
+                # Mule Fan-out: Source received funds recently (Cycle/Flow).
+                
+                # Check Source's Incoming Flow
+                total_in = df[df['receiver_id'] == sender]['amount'].sum()
+                total_out = df[df['sender_id'] == sender]['amount'].sum()
+                
+                # Payroll source usually generates money (Capital) or receives bulk.
+                # Mule Source receives ~same amount just before.
+                # Metric: Flow Balance.
+                # If Total In ~= Total Out, likely Mule.
+                # If Total Out >> Total In, likely Payroll/Source.
+                
+                balance_ratio = total_in / (total_out + 1e-5)
+                
+                if balance_ratio < 0.5: 
+                    # Disperses much more than received -> Originator/Payroll
+                    continue
+                    
+                smurfs.append({"type": "fan_out_smurfing", "center": sender, "members": unique_receivers.tolist()})
+                break
+                
     return smurfs
 
 def get_layered_shells(simple_G, in_degrees, out_degrees):
-    """Chains of 3+ hops where intermediate accounts have 2-3 total transactions."""
+    """
+    Chains of 3+ hops where intermediate accounts have 2-3 total transactions.
+    Intermediate Node Logic: 
+    - Total Degree (In + Out) is exactly 2 or 3.
+    - It basically just receives and sends.
+    """
     shells = []
     # Identify candidates: nodes with total degree 2-3 (likely just pass-through)
     shell_candidates = set(
         n for n in simple_G.nodes()
         if 2 <= (in_degrees.get(n, 0) + out_degrees.get(n, 0)) <= 3
+        # Must have at least 1 in and 1 out to be a bridge
         and in_degrees.get(n, 0) >= 1 and out_degrees.get(n, 0) >= 1
     )
     
     # Search for pattern: start -> u -> v -> end
     # where u and v are shell_candidates
+    # We need a chain of at least 2 intermediates to form a "Layered" Shell network of 3+ hops?
+    # PDF says: "chains of 3+ hops where intermediate accounts have only 2–3 total transactions"
+    # 3 hops = A -> B -> C -> D. (Intermediate B, C).
+    
     for u in shell_candidates:
+        # Check neighbors
         for v in simple_G.successors(u):
             if v in shell_candidates and u != v:
-                # We found a link between two shell candidates.
-                # Now look for the 'start' (feeder) and 'end' (collector)
-                for start in simple_G.predecessors(u):
-                    if start == v: # Avoid immediate cycles u<->v
-                        continue
-                    for end in simple_G.successors(v):
-                        if end == u or end == start: # Avoid loops
-                            continue
+                # u -> v is a shell-to-shell link
+                # Now extend backwards to 'start' and forwards to 'end'
+                
+                # Backward extension
+                predecessors = list(simple_G.predecessors(u))
+                successors = list(simple_G.successors(v))
+                
+                for start in predecessors:
+                    if start == v: continue 
+                    for end in successors:
+                        if end == u or end == start: continue
                         
-                        # Found the pattern
+                        # Valid Chain: start -> u -> v -> end
                         shells.append([start, u, v, end])
     return shells
 
